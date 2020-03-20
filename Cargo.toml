@@ -1,0 +1,17 @@
+[package]
+name = "csv2parquet"
+version = "0.1.0"
+authors = ["Jeong, Heon <blmarket@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+parquet = "0.16"
+tokio = { version = "0.2", features = [ "full", "stream" ] }
+tokio-util = "0.3"
+futures = "0.3"
+# futures-core = "0.3"
+futures-io = "0.3"
+futures-util = "0.3"
+csv = "1.1"
