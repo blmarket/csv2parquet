@@ -12,7 +12,8 @@ use futures_util::StreamExt;
 
 use csv::ByteRecord;
 
-mod memory;
+mod column_writer;
+mod row_group;
 
 async fn async_read_raw(fname: &str) -> impl Stream<Item = io::Result<Vec<u8>>> {
     let file = File::open(fname).await.expect("Expects file");

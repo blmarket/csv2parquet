@@ -1,6 +1,6 @@
 use parquet::{
-    column::writer::{get_column_writer, ColumnWriter, ColumnWriterImpl},
-    column::page::{PageWriter, CompressedPage, PageWriteSpec},
+    column::writer::{get_column_writer, ColumnWriter},
+    column::page::{CompressedPage, PageWriteSpec},
     errors::ParquetError,
     file::metadata::ColumnChunkMetaData,
     file::writer::SerializedPageWriter,
@@ -9,7 +9,7 @@ use parquet::{
 };
 use std::{io::Cursor, rc::Rc};
 
-struct BufferedColumnWriter {
+pub struct BufferedColumnWriter {
     buf: *mut Vec<u8>,
     writer: ColumnWriter,
 }
@@ -30,7 +30,7 @@ impl BufferedColumnWriter {
         &mut self.writer
     }
 
-    pub fn close(self) -> Result<(u64, u64, ColumnChunkMetaData, Box<Vec<u8>>), Box<dyn std::error::Error>> {
+    pub fn close(self) -> Result<(i64, i64, ColumnChunkMetaData, Box<Vec<u8>>), Box<dyn std::error::Error>> {
         let (bytes_written, rows_written, metadata) = match self.writer {
             ColumnWriter::BoolColumnWriter(typed) => typed.close()?,
             ColumnWriter::Int32ColumnWriter(typed) => typed.close()?,
@@ -41,7 +41,7 @@ impl BufferedColumnWriter {
             ColumnWriter::ByteArrayColumnWriter(typed) => typed.close()?,
             ColumnWriter::FixedLenByteArrayColumnWriter(typed) => typed.close()?,
         };
-        Ok((bytes_written, rows_written, metadata, unsafe { Box::from_raw(self.buf) }))
+        Ok((bytes_written as i64, rows_written as i64, metadata, unsafe { Box::from_raw(self.buf) }))
     }
 }
 
@@ -141,7 +141,7 @@ mod tests {
             ColumnWriter::DoubleColumnWriter(_typed_writer) => todo!(),
         }
 
-        dbg!(writer.close().len());
+        dbg!(writer.close().unwrap().3);
 
         // dbg!(cursor.position());
         // let dealloc = unsafe { Box::from_raw(buf_ptr) };
