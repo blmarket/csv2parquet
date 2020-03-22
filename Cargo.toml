@@ -7,7 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-parquet = "0.16"
+# parquet = "0.16"
+parquet = { path = "../arrow/rust/parquet" }
 tokio = { version = "0.2", features = [ "full", "stream" ] }
 tokio-util = "0.3"
 futures = "0.3"
@@ -15,3 +16,4 @@ futures = "0.3"
 futures-io = "0.3"
 futures-util = "0.3"
 csv = "1.1"
+bytes = "0.5"
