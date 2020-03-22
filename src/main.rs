@@ -12,6 +12,8 @@ use futures_util::StreamExt;
 
 use csv::ByteRecord;
 
+mod memory;
+
 async fn async_read_raw(fname: &str) -> impl Stream<Item = io::Result<Vec<u8>>> {
     let file = File::open(fname).await.expect("Expects file");
     let reader = BufReader::with_capacity(1 << 20, file);
@@ -48,7 +50,7 @@ fn sync_read_record(fname: &str) -> impl Iterator<Item = usize> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let fname = "medium";
+    let fname = "small";
     {
         let now = std::time::Instant::now();
         let async_stream = async_read_record(fname).await;
@@ -81,9 +83,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     extern crate test;
 
-    use super::*;
-    use test::Bencher;
-
     #[test]
     fn test_schema() {
         use parquet::schema::parser;
@@ -100,11 +99,5 @@ mod tests {
             OPTIONAL BYTE_ARRAY ineligibility (UTF8);
         }";
         parser::parse_message_type(message).expect("Expected valid schema");
-    }
-
-    #[test]
-    fn test() {
-        let vec = vec![0u8; 18];
-        vec.split(|v| v == 1);
     }
 }
