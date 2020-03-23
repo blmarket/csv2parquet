@@ -1,11 +1,8 @@
 use parquet::{
     column::writer::{get_column_writer, ColumnWriter},
-    column::page::{CompressedPage, PageWriteSpec},
-    errors::ParquetError,
     file::metadata::ColumnChunkMetaData,
-    file::writer::SerializedPageWriter,
-    file::properties::{WriterProperties, WriterVersion},
-    schema::types::{ColumnDescriptor, ColumnPath},
+    file::properties::{WriterProperties},
+    schema::types::{ColumnDescriptor},
 };
 use std::{io::Cursor, rc::Rc};
 
@@ -75,21 +72,21 @@ mod tests {
         get_column_writer(Rc::new(col_desc), props, writer)
     }
 
-    fn tmp2(page_writer: Box<SerializedPageWriter<Cursor<&'static mut Vec<u8>>>>) -> ColumnWriter {
-        let schema = Rc::new(create_schema());
-        let field = &schema.get_fields()[0];
+    // fn tmp2(page_writer: Box<SerializedPageWriter<Cursor<&'static mut Vec<u8>>>>) -> ColumnWriter {
+    //     let schema = Rc::new(create_schema());
+    //     let field = &schema.get_fields()[0];
 
-        let props = Rc::new(
-            WriterProperties::builder()
-                .set_writer_version(WriterVersion::PARQUET_2_0)
-                .set_compression(Compression::SNAPPY)
-                .build(),
-        );
+    //     let props = Rc::new(
+    //         WriterProperties::builder()
+    //             .set_writer_version(WriterVersion::PARQUET_2_0)
+    //             .set_compression(Compression::SNAPPY)
+    //             .build(),
+    //     );
 
-        let col_desc = ColumnDescriptor::new(field.clone(), Some(schema.clone()), 1, 0, ColumnPath::from(field.name()));
+    //     let col_desc = ColumnDescriptor::new(field.clone(), Some(schema.clone()), 1, 0, ColumnPath::from(field.name()));
 
-        get_column_writer(Rc::new(col_desc), props, page_writer)
-    }
+    //     get_column_writer(Rc::new(col_desc), props, page_writer)
+    // }
 
     #[test]
     fn test_something_new() {

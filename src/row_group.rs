@@ -1,26 +1,24 @@
 use crate::column_writer::BufferedColumnWriter;
-use futures::io::{AsyncReadExt, AsyncWriteExt, Cursor};
-use futures::{Sink, Stream, StreamExt};
+use futures::io::{AsyncWriteExt};
 use futures_io::AsyncWrite;
 use parquet::{
     column::writer::ColumnWriter,
     file::{
         metadata::{ColumnChunkMetaData, RowGroupMetaData},
-        properties::{WriterProperties, WriterVersion},
-        writer::{ParquetWriter},
+        properties::{WriterProperties},
     },
-    schema::types::{SchemaDescriptor, SchemaDescPtr},
+    schema::types::{SchemaDescPtr, SchemaDescriptor},
 };
 use std::rc::Rc;
 
-struct BufferedRowGroupWriter<W: AsyncWrite + Unpin> {
+pub struct BufferedRowGroupWriter<W: AsyncWrite + Unpin> {
     sink: W,
     columns: Vec<BufferedColumnWriter>,
     schema_descr: SchemaDescPtr,
 }
 
 impl<W: AsyncWrite + Unpin> BufferedRowGroupWriter<W> {
-    pub fn new(sink: W, schema: SchemaDescPtr, writer_props: Rc<WriterProperties>) -> Self {
+    pub fn new(sink: W, schema: Rc<SchemaDescriptor>, writer_props: Rc<WriterProperties>) -> Self {
         use parquet::schema::types::{ColumnDescriptor, ColumnPath};
 
         let fields = schema.root_schema().get_fields();
@@ -70,6 +68,9 @@ mod tests {
     use parquet::schema::types::Type;
     use parquet::basic::Compression;
     use parquet::data_type::ByteArray;
+    use parquet::schema::types::{SchemaDescPtr, SchemaDescriptor};
+    use parquet::file::properties::WriterVersion;
+    use futures::io::Cursor;
 
     fn create_schema() -> Type {
         use parquet::schema::parser;

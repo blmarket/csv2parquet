@@ -14,6 +14,7 @@ use csv::ByteRecord;
 
 mod column_writer;
 mod row_group;
+mod writer;
 
 async fn async_read_raw(fname: &str) -> impl Stream<Item = io::Result<Vec<u8>>> {
     let file = File::open(fname).await.expect("Expects file");
