@@ -17,3 +17,9 @@ futures-io = "0.3"
 futures-util = "0.3"
 csv = "1.1"
 bytes = "0.5"
+parquet-format = "2.6.0"
+thrift = "0.12"
+byteorder = "~1.2"
+
+[dev-dependencies]
+tokio = { version = "0.2", features = [ "full", "stream", "fs" ] }

@@ -276,12 +276,15 @@ dependencies = [
 name = "csv2parquet"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
  "bytes",
  "csv",
  "futures",
  "futures-io",
  "futures-util",
  "parquet",
+ "parquet-format",
+ "thrift",
  "tokio",
  "tokio-util 0.3.0",
 ]
