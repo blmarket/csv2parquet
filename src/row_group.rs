@@ -1,4 +1,4 @@
-use crate::column_writer::BufferedColumnWriter;
+use crate::wrong_column_writer::BufferedColumnWriter;
 use futures::io::{AsyncWriteExt};
 use futures_io::AsyncWrite;
 use parquet::{
