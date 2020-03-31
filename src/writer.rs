@@ -1,8 +1,8 @@
 // use crate::row_group::BufferedRowGroupWriter;
 use futures::stream;
-use futures::{AsyncRead, AsyncReadExt, AsyncWrite, Stream, StreamExt, TryStream, TryStreamExt};
+use futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncSeek, Stream, StreamExt, TryStream, TryStreamExt};
 use parquet::{
-    column::writer::ColumnWriter,
+    column::buf_writer::ColumnWriter,
     file::{
         metadata::{ColumnChunkMetaData, RowGroupMetaData},
         properties::{WriterProperties},
@@ -15,7 +15,8 @@ use std::rc::Rc;
 use parquet_format;
 use thrift::protocol::{TCompactOutputProtocol, TOutputProtocol};
 use byteorder::{ByteOrder, LittleEndian};
-use std::io::Write;
+use std::io::{self, Write, Seek, Read};
+use std::io::prelude::*;
 
 use crate::row_group::BufferedRowGroupWriter;
 
@@ -31,11 +32,11 @@ pub async fn write_parquet<'a, S, W>(
 ) -> Result<(), Box<dyn Error>>
 where
     S: Stream<Item = Vec<&'a str>>,
-    W: AsyncWrite + Unpin,
+    W: Write + Seek,
 {
-    let header = stream::iter(vec![Ok(PARQUET_MAGIC)]);
+    // let header = stream::iter(vec![Ok(PARQUET_MAGIC)]);
 
-    futures::io::copy(header.into_async_read(), &mut sink).await?;
+    io::copy(&mut &PARQUET_MAGIC[..], &mut sink).unwrap();
 
     let schema_descr = Rc::new(SchemaDescriptor::new(schema.clone()));
 
@@ -75,8 +76,8 @@ where
     LittleEndian::write_i32(&mut footer_buffer, metadata_buf.len() as i32);
     (&mut footer_buffer[4..]).write(&PARQUET_MAGIC)?;
 
-    futures::io::copy(&metadata_buf[..], &mut sink).await?;
-    futures::io::copy(&footer_buffer[..], &mut sink).await?;
+    io::copy(&mut &metadata_buf[..], &mut sink).unwrap();
+    io::copy(&mut &footer_buffer[..], &mut sink).unwrap();
 
     Ok(())
 }
@@ -101,7 +102,7 @@ mod tests {
 
     #[test]
     fn test22() {
-        use futures::io::Cursor;
+        use std::io::Cursor;
         let schema = Rc::new(create_schema());
         let props = Rc::new(
             WriterProperties::builder()

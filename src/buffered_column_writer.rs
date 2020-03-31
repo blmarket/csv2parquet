@@ -1,13 +1,16 @@
+use futures::{AsyncSeek, AsyncWrite};
 use parquet::{
     column::writer::{get_column_writer, ColumnWriter},
     file::metadata::ColumnChunkMetaData,
-    file::properties::{WriterProperties},
-    schema::types::{ColumnDescriptor},
+    file::properties::WriterProperties,
+    schema::types::ColumnDescriptor,
 };
 use std::{io::Cursor, rc::Rc};
+use futures::io::AllowStdIo;
+use std::marker::Unpin;
 
 pub struct BufferedColumnWriter {
-    buf: *mut Vec<u8>,
+    buf_ptr: *mut Vec<u8>,
     writer: ColumnWriter,
 }
 
@@ -20,14 +23,20 @@ impl BufferedColumnWriter {
 
         let writer = get_column_writer(Rc::new(col_desc), props, page_writer);
 
-        BufferedColumnWriter { buf: buf_ptr, writer }
+        BufferedColumnWriter { buf_ptr, writer }
     }
 
     pub fn get_writer(&mut self) -> &mut ColumnWriter {
         &mut self.writer
     }
 
-    pub fn close(self) -> Result<(i64, i64, ColumnChunkMetaData, Box<Vec<u8>>), Box<dyn std::error::Error>> {
+    pub async fn close<T>(
+        self,
+        sink: &mut T,
+    ) -> Result<(i64, i64, ColumnChunkMetaData), Box<dyn std::error::Error>>
+    where
+        T: AsyncSeek + AsyncWrite + Unpin + Sized,
+    {
         let (bytes_written, rows_written, metadata) = match self.writer {
             ColumnWriter::BoolColumnWriter(typed) => typed.close()?,
             ColumnWriter::Int32ColumnWriter(typed) => typed.close()?,
@@ -38,7 +47,9 @@ impl BufferedColumnWriter {
             ColumnWriter::ByteArrayColumnWriter(typed) => typed.close()?,
             ColumnWriter::FixedLenByteArrayColumnWriter(typed) => typed.close()?,
         };
-        Ok((bytes_written as i64, rows_written as i64, metadata, unsafe { Box::from_raw(self.buf) }))
+        let buf = unsafe { Box::from_raw(self.buf_ptr) };
+        futures::io::copy(AllowStdIo::new(Cursor::new(buf.as_ref())), sink);
+        Ok((bytes_written as i64, rows_written as i64, metadata))
     }
 }
 
@@ -46,12 +57,12 @@ impl BufferedColumnWriter {
 mod tests {
     use super::*;
 
-    use parquet::schema::types::Type;
-    use std::rc::Rc;
     use parquet::basic::Compression;
-    use parquet::file::properties::{WriterProperties, WriterVersion};
-    use parquet::schema::types::{ColumnDescriptor, ColumnPath};
     use parquet::data_type::ByteArray;
+    use parquet::file::properties::{WriterProperties, WriterVersion};
+    use parquet::schema::types::Type;
+    use parquet::schema::types::{ColumnDescriptor, ColumnPath};
+    use std::rc::Rc;
 
     fn tmp(buf: &'static mut Vec<u8>) -> ColumnWriter {
         let cursor = Cursor::new(buf);
@@ -67,7 +78,13 @@ mod tests {
                 .build(),
         );
 
-        let col_desc = ColumnDescriptor::new(field.clone(), Some(schema.clone()), 1, 0, ColumnPath::from(field.name()));
+        let col_desc = ColumnDescriptor::new(
+            field.clone(),
+            Some(schema.clone()),
+            1,
+            0,
+            ColumnPath::from(field.name()),
+        );
 
         get_column_writer(Rc::new(col_desc), props, writer)
     }
@@ -89,63 +106,6 @@ mod tests {
     // }
 
     #[test]
-    fn test_something_new() {
-        let schema = Rc::new(create_schema());
-        let field = &schema.get_fields()[0];
-        let props = Rc::new(
-            WriterProperties::builder()
-                .set_writer_version(WriterVersion::PARQUET_2_0)
-                .set_compression(Compression::SNAPPY)
-                .build(),
-        );
-
-        let col_desc = ColumnDescriptor::new(field.clone(), Some(schema.clone()), 1, 0, ColumnPath::from(field.name()));
-
-        let mut writer = BufferedColumnWriter::new(col_desc, props);
-
-        match &mut writer.get_writer() {
-            // ColumnWriter::ByteArrayColumnWriter(mut typed_writer) => {
-            //     typed_writer.write_batch(&vec![ByteArray::from("asdfnews")], Some(&vec![1i16]), None);
-            //     typed_writer.close();
-            // },
-            ColumnWriter::ByteArrayColumnWriter(typed_writer) => {
-                eprintln!("Hello World");
-                typed_writer.write_batch(&vec![ByteArray::from("asdfnews")], Some(&vec![1i16]), None);
-            },
-            ColumnWriter::FixedLenByteArrayColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::BoolColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::Int32ColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::Int64ColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::Int96ColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::FloatColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::DoubleColumnWriter(_typed_writer) => todo!(),
-        }
-
-        match &mut writer.get_writer() {
-            // ColumnWriter::ByteArrayColumnWriter(mut typed_writer) => {
-            //     typed_writer.write_batch(&vec![ByteArray::from("asdfnews")], Some(&vec![1i16]), None);
-            //     typed_writer.close();
-            // },
-            ColumnWriter::ByteArrayColumnWriter(typed_writer) => {
-                typed_writer.write_batch(&vec![ByteArray::from("blahblah")], Some(&vec![1i16]), None);
-            },
-            ColumnWriter::FixedLenByteArrayColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::BoolColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::Int32ColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::Int64ColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::Int96ColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::FloatColumnWriter(_typed_writer) => todo!(),
-            ColumnWriter::DoubleColumnWriter(_typed_writer) => todo!(),
-        }
-
-        dbg!(writer.close().unwrap().3);
-
-        // dbg!(cursor.position());
-        // let dealloc = unsafe { Box::from_raw(buf_ptr) };
-        // dbg!(dealloc.len());
-    }
-
-    #[test]
     fn test_something() {
         let buf = Box::new(Vec::<u8>::new());
         let buf_ptr = Box::into_raw(buf);
@@ -153,9 +113,13 @@ mod tests {
 
         match writer {
             ColumnWriter::ByteArrayColumnWriter(mut typed_writer) => {
-                typed_writer.write_batch(&vec![ByteArray::from("asdfnews")], Some(&vec![1i16]), None);
+                typed_writer.write_batch(
+                    &vec![ByteArray::from("asdfnews")],
+                    Some(&vec![1i16]),
+                    None,
+                );
                 typed_writer.close();
-            },
+            }
             ColumnWriter::FixedLenByteArrayColumnWriter(_typed_writer) => todo!(),
             ColumnWriter::BoolColumnWriter(_typed_writer) => todo!(),
             ColumnWriter::Int32ColumnWriter(_typed_writer) => todo!(),

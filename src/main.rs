@@ -13,6 +13,7 @@ use futures_util::StreamExt;
 use csv::ByteRecord;
 
 mod wrong_column_writer;
+mod buffered_column_writer;
 mod row_group;
 mod writer;
 
