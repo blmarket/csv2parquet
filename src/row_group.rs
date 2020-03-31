@@ -1,6 +1,5 @@
 use std::{rc::Rc, io::{Write, Seek}};
 
-use futures::io::{AsyncWrite, AsyncSeek, AllowStdIo, AsyncWriteExt};
 use parquet::{
     column::buf_writer::{self, ColumnWriter},
     file::{

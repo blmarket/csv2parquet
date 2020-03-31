@@ -1,28 +1,25 @@
 // use crate::row_group::BufferedRowGroupWriter;
-use futures::stream;
-use futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncSeek, Stream, StreamExt, TryStream, TryStreamExt};
+use futures::{Stream, StreamExt};
 use parquet::{
     column::buf_writer::ColumnWriter,
     file::{
-        metadata::{ColumnChunkMetaData, RowGroupMetaData},
         properties::{WriterProperties},
     },
-    schema::types::{SchemaDescPtr, SchemaDescriptor, Type},
+    schema::types::{SchemaDescriptor, Type},
+    data_type::ByteArray,
 };
-use parquet::data_type::ByteArray;
 use std::error::Error;
 use std::rc::Rc;
 use parquet_format;
 use thrift::protocol::{TCompactOutputProtocol, TOutputProtocol};
 use byteorder::{ByteOrder, LittleEndian};
-use std::io::{self, Write, Seek, Read};
-use std::io::prelude::*;
+use std::io::{self, Write, Seek};
 
 use crate::row_group::BufferedRowGroupWriter;
 
 const FOOTER_SIZE: usize = 8;
 const PARQUET_MAGIC: [u8; 4] = [b'P', b'A', b'R', b'1'];
-const ROW_GROUP_SIZE: usize = 1 << 20;
+// const ROW_GROUP_SIZE: usize = 1 << 20;
 
 pub async fn write_parquet<'a, S, W>(
     mut sink: &mut W,
@@ -45,7 +42,7 @@ where
         for (idx, v) in it.iter().enumerate() {
             match &mut writer.get_column(idx) {
                 ColumnWriter::ByteArrayColumnWriter(typed_writer) => {
-                    typed_writer.write_batch(&vec![ByteArray::from(v.as_str())], Some(&vec![1i16]), None);
+                    typed_writer.write_batch(&vec![ByteArray::from(v.as_str())], Some(&vec![1i16]), None).unwrap();
                 },
                 _ => todo!(),
             }
