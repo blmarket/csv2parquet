@@ -31,7 +31,7 @@ pub async fn write_parquet<'a, S, W>(
     props: Rc<WriterProperties>,
 ) -> Result<(), Box<dyn Error>>
 where
-    S: Stream<Item = Vec<&'a str>>,
+    S: Stream<Item = Vec<String>>,
     W: Write + Seek,
 {
     // let header = stream::iter(vec![Ok(PARQUET_MAGIC)]);
@@ -45,7 +45,7 @@ where
         for (idx, v) in it.iter().enumerate() {
             match &mut writer.get_column(idx) {
                 ColumnWriter::ByteArrayColumnWriter(typed_writer) => {
-                    typed_writer.write_batch(&vec![ByteArray::from(*v)], Some(&vec![1i16]), None);
+                    typed_writer.write_batch(&vec![ByteArray::from(v.as_str())], Some(&vec![1i16]), None);
                 },
                 _ => todo!(),
             }
@@ -100,6 +100,23 @@ mod tests {
         parser::parse_message_type(message).expect("Expected valid schema")
     }
 
+    fn create_schema_10() -> Type {
+        use parquet::schema::parser;
+        let message = "message schema {
+            OPTIONAL BYTE_ARRAY string_field_0 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_1 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_2 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_3 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_4 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_5 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_6 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_7 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_8 (UTF8);
+            OPTIONAL BYTE_ARRAY string_field_9 (UTF8);
+        }";
+        parser::parse_message_type(message).expect("Expected valid schema")
+    }
+
     #[test]
     fn test22() {
         use std::io::Cursor;
@@ -130,10 +147,40 @@ mod tests {
         let mut buf = AllowStdIo::new(std::fs::File::create("test.snappy.parquet").unwrap());
         futures::executor::block_on(async {
             write_parquet(&mut buf, stream::iter(vec![
-                vec!["asdf1", "news1", "good3"],
-                vec!["asdf2", "news2", "good2"],
-                vec!["asdf3", "news3", "good1"]
+                vec![String::from("asdf1"), String::from("news1"), String::from("good3")],
+                vec![String::from("asdf2"), String::from("news2"), String::from("good2")],
+                vec![String::from("asdf3"), String::from("news3"), String::from("good1")]
             ]), schema, props).await.unwrap();
+        });
+    }
+
+    #[test]
+    fn test_write_big_to_file() {
+        use futures::io::AllowStdIo;
+        let schema = Rc::new(create_schema_10());
+        let props = Rc::new(
+            WriterProperties::builder()
+                .set_writer_version(WriterVersion::PARQUET_2_0)
+                .set_compression(Compression::SNAPPY)
+                .build(),
+        );
+        let mut buf = AllowStdIo::new(std::fs::File::create("test_big.snappy.parquet").unwrap());
+
+        futures::executor::block_on(async {
+            let reader = futures::io::BufReader::new(AllowStdIo::new(std::fs::File::open("medium").unwrap()));
+            use futures::io::AsyncBufReadExt;
+            let stream = reader.lines()
+                .map_ok(|l| l.split('\t').map(|v| String::from(v)).collect::<Vec<String>>());
+
+            // stream
+            //     .take(10)
+            //     .try_for_each(|l| {
+            //         eprintln!("{:?}", l);
+            //         futures::future::ready(Ok(()))
+            //     }).await;
+
+            write_parquet(&mut buf, stream
+                .map(|l| l.unwrap()), schema, props).await.unwrap();
         });
     }
 }
