@@ -5,10 +5,12 @@ authors = ["Jeong, Heon <blmarket@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["lib"]
 
 [dependencies]
 # parquet = "0.16"
-parquet = { path = "../arrow/rust/parquet" }
+parquet = { git = "https://github.com/blmarket/arrow" } # Use local modified version
 tokio = { version = "0.2", features = [ "full", "stream" ] }
 tokio-util = "0.3"
 futures = "0.3"

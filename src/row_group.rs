@@ -32,7 +32,7 @@ impl<W: Write + Seek> BufferedRowGroupWriter<W> {
         &mut self.columns[idx]
     }
 
-    pub async fn close(mut self) -> Result<Rc<RowGroupMetaData>, Box<dyn std::error::Error>> {
+    pub fn close(mut self) -> Result<Rc<RowGroupMetaData>, Box<dyn std::error::Error>> {
         let mut total_bytes_written = 0i64;
         let mut total_rows: Option<u64> = None;
         let mut metas: Vec<ColumnChunkMetaData> = Vec::with_capacity(self.columns.len());

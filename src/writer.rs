@@ -14,6 +14,7 @@ use parquet_format;
 use thrift::protocol::{TCompactOutputProtocol, TOutputProtocol};
 use byteorder::{ByteOrder, LittleEndian};
 use std::io::{self, Write, Seek};
+use std::iter::Iterator;
 
 use crate::row_group::BufferedRowGroupWriter;
 
@@ -21,23 +22,26 @@ const FOOTER_SIZE: usize = 8;
 const PARQUET_MAGIC: [u8; 4] = [b'P', b'A', b'R', b'1'];
 // const ROW_GROUP_SIZE: usize = 1 << 20;
 
-pub async fn write_parquet<'a, S, W>(
+pub fn write_parquet<'a, S, W>(
     mut sink: &mut W,
     stream: S,
-    schema: Rc<Type>,
-    props: Rc<WriterProperties>,
+    schema: Type,
+    props: WriterProperties,
 ) -> Result<(), Box<dyn Error>>
 where
-    S: Stream<Item = Vec<String>>,
+    S: Iterator<Item = Vec<String>>,
     W: Write + Seek,
 {
     // let header = stream::iter(vec![Ok(PARQUET_MAGIC)]);
 
     io::copy(&mut &PARQUET_MAGIC[..], &mut sink).unwrap();
 
-    let schema_descr = Rc::new(SchemaDescriptor::new(schema.clone()));
+    let schema_rc = Rc::new(schema);
+    let props_rc = Rc::new(props);
 
-    let mut writer = BufferedRowGroupWriter::new(&mut sink, schema_descr, props.clone());
+    let schema_descr = Rc::new(SchemaDescriptor::new(schema_rc.clone()));
+
+    let mut writer = BufferedRowGroupWriter::new(&mut sink, schema_descr, props_rc.clone());
     stream.for_each(|it| {
         for (idx, v) in it.iter().enumerate() {
             match &mut writer.get_column(idx) {
@@ -47,18 +51,17 @@ where
                 _ => todo!(),
             }
         }
-        futures::future::ready(())
-    }).await;
+    });
 
-    let meta = writer.close().await?;
+    let meta = writer.close().unwrap();
 
     let file_metadata = parquet_format::FileMetaData {
-        version: props.writer_version().as_num(),
-        schema: parquet::schema::types::to_thrift(schema.as_ref())?,
+        version: props_rc.writer_version().as_num(),
+        schema: parquet::schema::types::to_thrift(schema_rc.as_ref())?,
         num_rows: meta.num_rows() as i64,
         row_groups: vec![meta.to_thrift()],
         key_value_metadata: None,
-        created_by: Some(props.created_by().to_owned()),
+        created_by: Some(props_rc.created_by().to_owned()),
         column_orders: None,
     };
 
