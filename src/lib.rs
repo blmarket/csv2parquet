@@ -19,7 +19,6 @@ use parquet::{
 
 mod row_group;
 pub mod writer;
-mod buf_writer;
 
 async fn async_read_raw(fname: &str) -> impl Stream<Item = io::Result<Vec<u8>>> {
     let file = File::open(fname).await.expect("Expects file");
