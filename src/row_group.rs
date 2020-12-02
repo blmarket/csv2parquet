@@ -33,7 +33,7 @@ impl<W: Write + Seek> BufferedRowGroupWriter<W> {
     }
 
     pub fn close(mut self) -> Result<Rc<RowGroupMetaData>, Box<dyn std::error::Error>> {
-        let mut total_bytes_written = 0i64;
+        let mut total_bytes_written = 0u64;
         let mut total_rows: Option<u64> = None;
         let mut metas: Vec<ColumnChunkMetaData> = Vec::with_capacity(self.columns.len());
         for col in self.columns {
@@ -47,7 +47,7 @@ impl<W: Write + Seek> BufferedRowGroupWriter<W> {
                 ColumnWriter::ByteArrayColumnWriter(typed) => typed.close(&mut self.sink).unwrap(),
                 ColumnWriter::FixedLenByteArrayColumnWriter(typed) => typed.close(&mut self.sink).unwrap(),
             };
-            total_bytes_written += bytes_written as i64;
+            total_bytes_written += bytes_written;
             total_rows = match (total_rows, rows_written) {
                 (None, y) => Some(y),
                 (Some(x), y) => {
@@ -61,7 +61,7 @@ impl<W: Write + Seek> BufferedRowGroupWriter<W> {
         }
         let row_group_meta = RowGroupMetaData::builder(self.schema_descr)
             .set_column_metadata(metas)
-            .set_total_byte_size(total_bytes_written)
+            .set_total_byte_size(total_bytes_written as i64)
             .set_num_rows(total_rows.unwrap_or(0u64) as i64)
             .build()?;
         Ok(Rc::new(row_group_meta))
@@ -71,20 +71,15 @@ impl<W: Write + Seek> BufferedRowGroupWriter<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parquet::schema::types::Type;
-    use parquet::basic::Compression;
-    use parquet::data_type::ByteArray;
-    use parquet::schema::types::{SchemaDescPtr, SchemaDescriptor};
-    use parquet::file::properties::WriterVersion;
-    use futures::io::Cursor;
 
-    fn create_schema() -> Type {
+    #[test]
+    fn create_schema() {
         use parquet::schema::parser;
         let message = "message schema {
             OPTIONAL BYTE_ARRAY snapshot_day (UTF8);
             OPTIONAL BYTE_ARRAY vendor_code (UTF8);
             OPTIONAL BYTE_ARRAY merchant_sku (UTF8);
         }";
-        parser::parse_message_type(message).expect("Expected valid schema")
+        parser::parse_message_type(message).expect("Expected valid schema");
     }
 }

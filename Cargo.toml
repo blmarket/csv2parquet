@@ -10,7 +10,8 @@ crate-type = ["lib"]
 
 [dependencies]
 # parquet = "0.16"
-parquet = { git = "https://github.com/blmarket/arrow" } # Use local modified version
+# parquet = { git = "https://github.com/blmarket/arrow" } # Use local modified version
+parquet = { path = "../arrow/rust/parquet" } # Use local modified version
 tokio = { version = "0.2", features = [ "full", "stream" ] }
 tokio-util = "0.3"
 futures = "0.3"
@@ -20,8 +21,8 @@ futures-util = "0.3"
 csv = "1.1"
 bytes = "0.5"
 parquet-format = "2.6.0"
-thrift = "0.12"
-byteorder = "~1.2"
+thrift = "0.13"
+byteorder = "~1.3"
 
 [dev-dependencies]
 tokio = { version = "0.2", features = [ "full", "stream", "fs" ] }

@@ -1,31 +1,33 @@
 #![feature(test)]
 
-use std::{io, rc::Rc};
+// use std::{io, rc::Rc};
+use std::io;
 use std::iter::FromIterator;
 
-use tokio::fs::File;
-use tokio::io::AsyncBufReadExt;
-use tokio::io::BufReader;
+use csv::ByteRecord;
 // use tokio::stream::StreamExt;
 use futures::Stream;
 use futures_util::StreamExt;
-
-use csv::ByteRecord;
 use parquet::{
-    basic::Compression,
-    file::properties::{WriterVersion, WriterProperties},
+    // basic::Compression,
+    // file::properties::{WriterProperties, WriterVersion},
     schema::types::Type,
 };
+use tokio::fs::File;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::BufReader;
 
 mod row_group;
 pub mod writer;
 
+#[allow(dead_code)]
 async fn async_read_raw(fname: &str) -> impl Stream<Item = io::Result<Vec<u8>>> {
     let file = File::open(fname).await.expect("Expects file");
     let reader = BufReader::with_capacity(1 << 20, file);
     reader.split(b'\n')
 }
 
+#[allow(dead_code)]
 async fn async_read_record(fname: &str) -> impl Stream<Item = ByteRecord> {
     let file = File::open(fname).await.expect("Expects file");
     let reader = BufReader::with_capacity(1 << 20, file);
@@ -34,6 +36,7 @@ async fn async_read_record(fname: &str) -> impl Stream<Item = ByteRecord> {
         .map(|line| ByteRecord::from_iter(line.expect("Should be a line").split(|b| *b == b'\t')))
 }
 
+#[allow(dead_code)]
 async fn count_async_stream<T: Stream>(stream: T) -> Result<i32, Box<dyn std::error::Error>> {
     let mut line_count: i32 = 0;
     {
@@ -46,6 +49,7 @@ async fn count_async_stream<T: Stream>(stream: T) -> Result<i32, Box<dyn std::er
     Ok(line_count)
 }
 
+#[allow(dead_code)]
 fn sync_read_record(fname: &str) -> impl Iterator<Item = usize> {
     use std::{fs, io::BufRead};
     let file = fs::File::open(fname).expect("Expects file");
@@ -56,6 +60,7 @@ fn sync_read_record(fname: &str) -> impl Iterator<Item = usize> {
         .map(|line| line.split(|b| *b == b'\t').map(|v| v.len()).sum())
 }
 
+#[allow(dead_code)]
 fn create_schema_10() -> Type {
     use parquet::schema::parser;
     let message = "message schema {
